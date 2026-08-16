@@ -54,14 +54,18 @@ public class SecurityConfig {
                                 "/swagger-resources/**",
                                 "/webjars/**"
                         ).permitAll()
-                        // Lectura pública: cualquiera puede ver barberías, servicios y horarios
+                        // Lectura pública: cualquiera puede ver barberías, servicios, horarios y disponibilidad
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/barbershops/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/availability/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/barbers/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/services/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/schedules/**").permitAll()
                         // Escritura: solo usuarios autenticados con rol TENANT_ADMIN o SUPER_ADMIN
                         .requestMatchers("/api/barbershops/**", "/api/barbers/**", "/api/services/**", "/api/schedules/**")
                         .hasAnyRole("TENANT_ADMIN", "SUPER_ADMIN")
+                        // Citas: cualquier usuario autenticado (cliente, barbero o admin)
+                        .requestMatchers("/api/appointments/**").authenticated()
+                        // Regla general al final: todo lo demás requiere estar autenticado
                         .anyRequest().authenticated()
                 )
                 .authenticationProvider(authenticationProvider())
