@@ -60,6 +60,7 @@ public class SecurityConfig {
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/barbers/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/services/**").permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/schedules/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/mercadopago/status/**", "/api/mercadopago/callback").permitAll()
                         // Escritura: solo usuarios autenticados con rol TENANT_ADMIN o SUPER_ADMIN
                         .requestMatchers("/api/barbershops/**", "/api/barbers/**", "/api/services/**", "/api/schedules/**")
                         .hasAnyRole("TENANT_ADMIN", "SUPER_ADMIN")
