@@ -66,6 +66,10 @@ public class SecurityConfig {
                         .hasAnyRole("TENANT_ADMIN", "SUPER_ADMIN")
                         // Citas: cualquier usuario autenticado (cliente, barbero o admin)
                         .requestMatchers("/api/appointments/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/plans/**").permitAll()
+                        .requestMatchers("/api/subscriptions/webhook").permitAll()
+                        .requestMatchers("/api/plans/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/subscriptions/**").authenticated()
                         // Regla general al final: todo lo demás requiere estar autenticado
                         .anyRequest().authenticated()
                 )
