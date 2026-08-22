@@ -29,18 +29,21 @@ public class SubscriptionController {
         return ResponseEntity.ok(subscriptionService.findByBarbershop(barbershopId));
     }
 
-    // Mercado Pago llama aquí cuando cambia el estado de una suscripción
+    // Mercado Pago llama aquí cuando cambia el estado de una suscripción.
+    // El payload solo trae el tipo de evento y el ID del recurso afectado.
     @PostMapping("/webhook")
     public ResponseEntity<Void> webhook(@RequestBody Map<String, Object> payload) {
-        // El payload real de MP trae distintos formatos según el tipo de evento;
-        // esto es una implementación mínima para el MVP, la afinamos con pruebas reales
+        Object type = payload.get("type");
         Object data = payload.get("data");
-        if (data instanceof Map<?, ?> dataMap && dataMap.get("id") != null) {
-            String preapprovalId = dataMap.get("id").toString();
-            // En un webhook real habría que consultar el estado actual vía GET /preapproval/{id}
-            // porque el payload de la notificación no siempre trae el status directo.
-            // Por ahora dejamos el hook listo para conectar esa consulta.
+
+        if ("subscription_preapproval".equals(type) && data instanceof Map<?, ?> dataMap) {
+            Object id = dataMap.get("id");
+            if (id != null) {
+                subscriptionService.refreshFromMercadoPago(id.toString());
+            }
         }
+
+        // Siempre respondemos 200 rápido; si no, Mercado Pago reintenta la notificación
         return ResponseEntity.ok().build();
     }
 }

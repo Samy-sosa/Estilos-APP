@@ -113,23 +113,50 @@ public class SubscriptionService {
     }
 
     /**
-     * Llamado desde el webhook de Mercado Pago cuando cambia el estado de una suscripción
-     * (ej. autorizada, pausada, cancelada).
+     * Llamado desde el webhook cuando Mercado Pago notifica un cambio.
+     * El payload del webhook solo trae el ID, así que consultamos el estado real a MP.
      */
-    public void updateStatusFromWebhook(String mpPreapprovalId, String mpStatus) {
+    public void refreshFromMercadoPago(String mpPreapprovalId) {
         Subscription subscription = subscriptionRepository.findByMpPreapprovalId(mpPreapprovalId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Suscripción no encontrada para mp_preapproval_id: " + mpPreapprovalId));
+                .orElse(null);
 
-        SubscriptionStatus newStatus = switch (mpStatus) {
+        if (subscription == null) {
+            // Puede ser una notificación de una suscripción que no reconocemos (ej. de pruebas
+            // viejas); la ignoramos sin tronar, ya que MP puede reintentar notificaciones.
+            return;
+        }
+
+        MpPreapprovalResponse mpData = restClient.get()
+                .uri(PREAPPROVAL_URL + "/" + mpPreapprovalId)
+                .header("Authorization", "Bearer " + mpProperties.getPlatformAccessToken())
+                .retrieve()
+                .body(MpPreapprovalResponse.class);
+
+        if (mpData == null || mpData.getStatus() == null) {
+            return;
+        }
+
+        SubscriptionStatus newStatus = mapMpStatus(mpData.getStatus());
+        subscription.setStatus(newStatus);
+
+        if (newStatus == SubscriptionStatus.ACTIVE && subscription.getCurrentPeriodEnd() == null) {
+            // Primera activación: calculamos la próxima fecha de cobro estimada
+            Plan plan = subscription.getPlan();
+            int monthsToAdd = plan.getBillingFrequency() == BillingFrequency.YEARLY ? 12 : 1;
+            subscription.setCurrentPeriodEnd(LocalDate.now().plusMonths(monthsToAdd));
+        }
+
+        subscriptionRepository.save(subscription);
+    }
+
+    private SubscriptionStatus mapMpStatus(String mpStatus) {
+        return switch (mpStatus) {
             case "authorized" -> SubscriptionStatus.ACTIVE;
             case "paused" -> SubscriptionStatus.PAST_DUE;
             case "cancelled" -> SubscriptionStatus.CANCELLED;
-            default -> subscription.getStatus();
+            case "pending" -> SubscriptionStatus.PENDING;
+            default -> SubscriptionStatus.PENDING;
         };
-
-        subscription.setStatus(newStatus);
-        subscriptionRepository.save(subscription);
     }
 
     private SubscriptionResponse toResponse(Subscription s, String checkoutUrl) {
